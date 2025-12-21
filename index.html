@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎄 聖誕節交換禮物大會 🎁</title>
+    <link href="https://fonts.googleapis.com/css2?family=Mountains+of+Christmas:wght@700&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        :root {
+            --red: #D42426;
+            --green: #2F5233;
+            --gold: #F1D570;
+            --cream: #F8F5E6;
+        }
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: var(--green);
+            background-image: radial-gradient(circle at 50% 50%, #3a6b41 0%, #2F5233 100%);
+            color: var(--cream);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 2px solid var(--gold);
+            border-radius: 20px;
+            padding: 2rem;
+            width: 90%;
+            max-width: 500px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            position: relative;
+        }
+
+        /* 裝飾用的聖誕元素 */
+        .decoration {
+            font-family: 'Mountains of Christmas', cursive;
+            font-size: 3rem;
+            color: var(--gold);
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            margin-bottom: 1rem;
+        }
+
+        h1 {
+            margin: 0 0 1.5rem 0;
+            font-size: 1.8rem;
+        }
+
+        /* 輸入區塊 */
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 1rem;
+        }
+
+        input {
+            flex: 1;
+            padding: 10px;
+            border-radius: 8px;
+            border: none;
+            outline: none;
+            font-size: 1rem;
+        }
+
+        button {
+            cursor: pointer;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-size: 1rem;
+            font-weight: bold;
+            transition: transform 0.1s, background 0.3s;
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        .btn-add { background: var(--gold); color: var(--green); }
+        .btn-start { background: var(--red); color: white; width: 100%; margin-top: 10px; font-size: 1.2rem; }
+        .btn-draw { background: var(--red); color: white; width: 100%; font-size: 1.5rem; padding: 15px; margin-top: 20px; }
+        .btn-reset { background: transparent; border: 1px solid var(--cream); color: var(--cream); margin-top: 20px; font-size: 0.8rem; }
+
+        /* 參加者列表 */
+        .list-area {
+            max-height: 150px;
+            overflow-y: auto;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 1rem;
+            text-align: left;
+        }
+
+        .tag {
+            display: inline-block;
+            background: var(--cream);
+            color: var(--green);
+            padding: 4px 8px;
+            border-radius: 4px;
+            margin: 4px;
+            font-size: 0.9rem;
+        }
+
+        /* 抽獎區塊 (預設隱藏) */
+        #game-section { display: none; }
+
+        select {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+            background: var(--cream);
+            border: none;
+        }
+
+        /* 結果顯示特效 */
+        .result-box {
+            margin-top: 20px;
+            min-height: 100px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        .rolling-text {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--gold);
+        }
+
+        .final-result {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 10px var(--red);
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .instruction {
+            font-size: 0.9rem;
+            opacity: 0.8;
+            margin-bottom: 10px;
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* 雪花背景 */
+        .snowflake {
+            position: fixed;
+            top: -10px;
+            color: #fff;
+            font-size: 1em;
+            opacity: 0.8;
+            animation: fall linear infinite;
+            z-index: -1;
+        }
+        @keyframes fall {
+            to { transform: translateY(105vh); }
+        }
+    </style>
+</head>
+<body>
+
+    <script>
+        for(let i=0; i<20; i++){
+            let snow = document.createElement('div');
+            snow.className = 'snowflake';
+            snow.innerHTML = '❄';
+            snow.style.left = Math.random() * 100 + 'vw';
+            snow.style.animationDuration = Math.random() * 3 + 2 + 's';
+            snow.style.fontSize = Math.random() * 10 + 10 + 'px';
+            document.body.appendChild(snow);
+        }
+    </script>
+
+    <div class="container">
+        <div class="decoration">Merry Christmas</div>
+        
+        <div id="setup-section">
+            <h1>🎅 參加者名單設定</h1>
+            <div class="input-group">
+                <input type="text" id="nameInput" placeholder="輸入名字 (例如: 小明)" onkeypress="handleEnter(event)">
+                <button class="btn-add" onclick="addName()">加入</button>
+            </div>
+            <div class="list-area" id="nameList">
+                </div>
+            <p style="font-size:0.8rem; color:#bbb;">目前人數: <span id="count">0</span></p>
+            <button class="btn-start" onclick="startGame()">開始分配禮物 🎁</button>
+        </div>
+
+        <div id="game-section">
+            <h1>🎁 誰要抽禮物？</h1>
+            <p class="instruction">請選擇你的名字，然後按下抽獎！</p>
+            
+            <select id="personSelect" onchange="resetDisplay()">
+                <option value="" disabled selected>-- 請選擇你的名字 --</option>
+            </select>
+
+            <div class="result-box">
+                <div id="displayArea" class="rolling-text">?</div>
+            </div>
+
+            <button class="btn-draw" id="drawBtn" onclick="drawGift()">開始抽獎</button>
+            
+            <div style="margin-top: 20px;">
+                <button class="btn-reset" onclick="location.reload()">重新開始 / 重置資料</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let participants = [];
+        let assignments = {}; // 儲存 配對結果 { "小明": "小華" }
+        let hasDrawn = {};    // 紀錄誰已經看過結果
+
+        // 按 Enter 鍵加入
+        function handleEnter(e) {
+            if (e.key === 'Enter') addName();
+        }
+
+        // 加入名單
+        function addName() {
+            const input = document.getElementById('nameInput');
+            const name = input.value.trim();
+            if (name && !participants.includes(name)) {
+                participants.push(name);
+                renderList();
+                input.value = '';
+            } else if (participants.includes(name)) {
+                alert("這個名字已經在名單內囉！");
+            }
+        }
+
+        // 渲染名單
+        function renderList() {
+            const list = document.getElementById('nameList');
+            const countSpan = document.getElementById('count');
+            list.innerHTML = participants.map(p => `<span class="tag">${p}</span>`).join('');
+            countSpan.innerText = participants.length;
+        }
+
+        // 核心演算法：產生錯排 (Derangement)
+        function generateDerangement(names) {
+            let shuffled;
+            let isValid = false;
+            
+            // 持續洗牌，直到沒有人抽到自己
+            // 注意：人數太少(1人)會造成無窮迴圈，前端會擋
+            while (!isValid) {
+                shuffled = [...names].sort(() => Math.random() - 0.5);
+                isValid = true;
+                for (let i = 0; i < names.length; i++) {
+                    if (names[i] === shuffled[i]) {
+                        isValid = false;
+                        break;
+                    }
+                }
+            }
+            
+            let result = {};
+            for (let i = 0; i < names.length; i++) {
+                result[names[i]] = shuffled[i];
+            }
+            return result;
+        }
+
+        // 開始遊戲
+        function startGame() {
+            if (participants.length < 2) {
+                alert("至少需要 2 個人才能交換禮物喔！");
+                return;
+            }
+
+            // 產生配對結果
+            assignments = generateDerangement(participants);
+
+            // 切換介面
+            document.getElementById('setup-section').style.display = 'none';
+            document.getElementById('game-section').style.display = 'block';
+
+            // 填入下拉選單
+            const select = document.getElementById('personSelect');
+            participants.forEach(p => {
+                let opt = document.createElement('option');
+                opt.value = p;
+                opt.innerText = p;
+                select.appendChild(opt);
+            });
+        }
+
+        // 重置顯示區域（當切換人名時）
+        function resetDisplay() {
+            document.getElementById('displayArea').innerHTML = "?";
+            document.getElementById('displayArea').className = "rolling-text";
+            document.getElementById('drawBtn').disabled = false;
+            document.getElementById('drawBtn').innerText = "開始抽獎";
+        }
+
+        // 執行抽獎邏輯
+        function drawGift() {
+            const who = document.getElementById('personSelect').value;
+            if (!who) {
+                alert("請先選擇你是誰！");
+                return;
+            }
+
+            if (hasDrawn[who]) {
+                alert("你已經抽過囉！不能偷看第二次！(或請重置頁面)");
+                return;
+            }
+
+            const target = assignments[who];
+            const display = document.getElementById('displayArea');
+            const btn = document.getElementById('drawBtn');
+            
+            // 開始動畫效果
+            btn.disabled = true;
+            let counter = 0;
+            let speed = 50; // 起始速度
+            
+            // 建立一個假的滾動名單 (不含自己)
+            let tempNames = participants.filter(n => n !== who);
+            
+            function roll() {
+                // 隨機顯示名字增加緊張感
+                display.innerText = tempNames[Math.floor(Math.random() * tempNames.length)];
+                
+                counter++;
+                if (counter < 20) {
+                    // 減速效果
+                    if (counter > 15) speed += 30; 
+                    setTimeout(roll, speed);
+                } else {
+                    // 停止，顯示結果
+                    showResult(target);
+                }
+            }
+            roll();
+        }
+
+        // 顯示結果與彩帶特效
+        function showResult(targetName) {
+            const display = document.getElementById('displayArea');
+            display.innerText = "🎁 " + targetName;
+            display.className = "final-result";
+            
+            // 標記此人已抽過
+            hasDrawn[document.getElementById('personSelect').value] = true;
+            document.getElementById('drawBtn').innerText = "抽獎完成";
+
+            // 發射彩帶
+            fireConfetti();
+        }
+
+        function fireConfetti() {
+            var count = 200;
+            var defaults = {
+                origin: { y: 0.7 }
+            };
+
+            function fire(particleRatio, opts) {
+                confetti(Object.assign({}, defaults, opts, {
+                    particleCount: Math.floor(count * particleRatio)
+                }));
+            }
+
+            fire(0.25, { spread: 26, startVelocity: 55, });
+            fire(0.2, { spread: 60, });
+            fire(0.35, { spread: 100, decay: 0.91, scalar: 0.8 });
+            fire(0.1, { spread: 120, startVelocity: 25, decay: 0.92, scalar: 1.2 });
+            fire(0.1, { spread: 120, startVelocity: 45, });
+        }
+    </script>
+</body>
+</html>
