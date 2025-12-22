@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🎄 聖誕節交換禮物大會 🎁</title>
+    
+    <meta property="og:image" content="https://zyzy.dpdns.org/xmas-change/thumbnail.jpg">
+    
+    <meta property="og:title" content="🎄 聖誕節交換禮物大會 🎁">
+    <meta property="og:description" content="一年一度的交換禮物開始囉！快來看看你抽到誰！絕對公平、不會抽到自己。">
+    <meta property="og:type" content="website">
     <link href="https://fonts.googleapis.com/css2?family=Mountains+of+Christmas:wght@700&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
@@ -131,12 +137,14 @@
             justify-content: center;
             align-items: center;
             flex-direction: column;
+            overflow: hidden; /* 防止名字太長跑版 */
         }
 
         .rolling-text {
             font-size: 2rem;
             font-weight: bold;
             color: var(--gold);
+            white-space: nowrap;
         }
 
         .final-result {
@@ -145,6 +153,7 @@
             color: #fff;
             text-shadow: 0 0 10px var(--red);
             animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            white-space: nowrap;
         }
 
         .instruction {
@@ -257,9 +266,6 @@
         function generateDerangement(names) {
             let shuffled;
             let isValid = false;
-            
-            // 持續洗牌，直到沒有人抽到自己
-            // 注意：人數太少(1人)會造成無窮迴圈，前端會擋
             while (!isValid) {
                 shuffled = [...names].sort(() => Math.random() - 0.5);
                 isValid = true;
@@ -270,7 +276,6 @@
                     }
                 }
             }
-            
             let result = {};
             for (let i = 0; i < names.length; i++) {
                 result[names[i]] = shuffled[i];
@@ -284,15 +289,9 @@
                 alert("至少需要 2 個人才能交換禮物喔！");
                 return;
             }
-
-            // 產生配對結果
             assignments = generateDerangement(participants);
-
-            // 切換介面
             document.getElementById('setup-section').style.display = 'none';
             document.getElementById('game-section').style.display = 'block';
-
-            // 填入下拉選單
             const select = document.getElementById('personSelect');
             participants.forEach(p => {
                 let opt = document.createElement('option');
@@ -302,7 +301,7 @@
             });
         }
 
-        // 重置顯示區域（當切換人名時）
+        // 重置顯示區域
         function resetDisplay() {
             document.getElementById('displayArea').innerHTML = "?";
             document.getElementById('displayArea').className = "rolling-text";
@@ -310,16 +309,15 @@
             document.getElementById('drawBtn').innerText = "開始抽獎";
         }
 
-        // 執行抽獎邏輯
+        // 執行抽獎邏輯 (已更新動畫順暢度)
         function drawGift() {
             const who = document.getElementById('personSelect').value;
             if (!who) {
                 alert("請先選擇你是誰！");
                 return;
             }
-
             if (hasDrawn[who]) {
-                alert("你已經抽過囉！不能偷看第二次！(或請重置頁面)");
+                alert("你已經抽過囉！");
                 return;
             }
 
@@ -330,19 +328,28 @@
             // 開始動畫效果
             btn.disabled = true;
             let counter = 0;
-            let speed = 50; // 起始速度
-            
+            let speed = 40; // 起始速度稍微加快
+            let maxCount = 35; // 增加滾動總次數，讓過程更豐富
+
             // 建立一個假的滾動名單 (不含自己)
             let tempNames = participants.filter(n => n !== who);
+            // 如果人數太少，複製幾份讓滾動看起來比較多樣
+            if (tempNames.length < 5) {
+                tempNames = [...tempNames, ...tempNames, ...tempNames];
+            }
             
             function roll() {
-                // 隨機顯示名字增加緊張感
+                // 隨機顯示名字
                 display.innerText = tempNames[Math.floor(Math.random() * tempNames.length)];
                 
                 counter++;
-                if (counter < 20) {
-                    // 減速效果
-                    if (counter > 15) speed += 30; 
+                if (counter < maxCount) {
+                    // --- 更新後的減速邏輯 ---
+                    // 在最後階段才開始變慢，且變慢的幅度比較平滑
+                    // 不會像之前那樣突然卡住
+                    if (counter > maxCount - 10) speed += 10; 
+                    if (counter > maxCount - 5) speed += 15;
+
                     setTimeout(roll, speed);
                 } else {
                     // 停止，顯示結果
@@ -358,26 +365,20 @@
             display.innerText = "🎁 " + targetName;
             display.className = "final-result";
             
-            // 標記此人已抽過
             hasDrawn[document.getElementById('personSelect').value] = true;
             document.getElementById('drawBtn').innerText = "抽獎完成";
 
-            // 發射彩帶
             fireConfetti();
         }
 
         function fireConfetti() {
             var count = 200;
-            var defaults = {
-                origin: { y: 0.7 }
-            };
-
+            var defaults = { origin: { y: 0.7 } };
             function fire(particleRatio, opts) {
                 confetti(Object.assign({}, defaults, opts, {
                     particleCount: Math.floor(count * particleRatio)
                 }));
             }
-
             fire(0.25, { spread: 26, startVelocity: 55, });
             fire(0.2, { spread: 60, });
             fire(0.35, { spread: 100, decay: 0.91, scalar: 0.8 });
