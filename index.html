@@ -19,6 +19,7 @@
             --green: #2F5233;
             --gold: #F1D570;
             --cream: #F8F5E6;
+            --grey: #888888;
         }
 
         body {
@@ -34,7 +35,7 @@
             overflow: hidden; 
         }
 
-        /* === 全域燈光控制層 (核心修改) === */
+        /* === 全域燈光控制層 === */
         #light-overlay {
             position: fixed;
             top: 0;
@@ -44,28 +45,23 @@
             pointer-events: none;
             z-index: 1000;
             opacity: 0;
-            /* 預設: 恢復變亮的速度快一點 */
             transition: opacity 0.5s ease;
         }
 
-        /* 模式 1: 漸進式聚光燈 (Spotlight) */
-        /* 這裡的 transition 設定為 2.5s，配合抽獎時間慢慢變暗 */
+        /* 模式 1: 漸進式聚光燈 */
         body.mode-spotlight #light-overlay {
             opacity: 1;
-            /* 中間挖空的黑色遮罩 */
             background: radial-gradient(circle at center, transparent 120px, rgba(0,0,0,0.98) 250px);
             transition: opacity 2.5s ease-in-out; 
         }
 
-        /* 模式 2: 全黑 (Blackout) */
+        /* 模式 2: 全黑 */
         body.mode-blackout #light-overlay {
             opacity: 1;
             background: #000;
-            /* 關燈要快，才有「啪」一聲的感覺 */
             transition: background 0.1s, opacity 0.1s; 
         }
 
-        /* 當進入全黑模式時，強制隱藏所有文字顯示區 */
         body.mode-blackout #displayArea {
             opacity: 0 !important;
             transition: opacity 0.1s;
@@ -100,15 +96,30 @@
         .input-group { display: flex; gap: 10px; margin-bottom: 1rem; }
         input { flex: 1; padding: 10px; border-radius: 8px; border: none; outline: none; font-size: 1rem; }
         
-        button { cursor: pointer; border: none; border-radius: 8px; padding: 10px 20px; font-size: 1rem; font-weight: bold; transition: transform 0.1s; }
+        button { cursor: pointer; border: none; border-radius: 8px; padding: 10px 20px; font-size: 1rem; font-weight: bold; transition: all 0.3s; }
         button:active { transform: scale(0.95); }
         .btn-add { background: var(--gold); color: var(--green); }
         .btn-start { background: var(--red); color: white; width: 100%; margin-top: 10px; font-size: 1.2rem; }
         
         .btn-draw { 
-            background: var(--red); color: white; width: 100%; font-size: 1.5rem; padding: 15px; margin-top: 20px; 
-            transition: opacity 1.5s; /* 按鈕也跟著慢慢變暗 */
+            background: var(--red); 
+            color: white; 
+            width: 100%; 
+            font-size: 1.5rem; 
+            padding: 15px; 
+            margin-top: 20px; 
         }
+        
+        /* 抽獎中/完成後的灰色按鈕樣式 */
+        .btn-draw:disabled {
+            background-color: var(--grey) !important;
+            color: #ddd;
+            cursor: not-allowed;
+            transform: none; /* 取消點擊縮放效果 */
+            opacity: 0.8; 
+        }
+        
+        /* 聚光燈模式下按鈕變暗 */
         body.mode-spotlight .btn-draw { opacity: 0.2; }
 
         .btn-reset { background: transparent; border: 1px solid var(--cream); color: var(--cream); margin-top: 20px; font-size: 0.8rem; }
@@ -140,7 +151,6 @@
             z-index: 1001; 
         }
 
-        /* 聚光燈模式下，滾動文字逐漸變亮變大 */
         body.mode-spotlight .rolling-text {
             color: #fff;
             text-shadow: 0 0 20px var(--gold), 0 0 10px white;
@@ -155,6 +165,22 @@
             z-index: 1001;
             text-shadow: 0 0 20px white, 0 0 40px var(--gold), 0 0 80px var(--red);
             animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        /* 提示下一個人更換名字的文字動畫 */
+        .next-prompt {
+            margin-top: 15px;
+            font-size: 1rem;
+            color: var(--gold);
+            font-weight: bold;
+            min-height: 1.5em; /* 佔位防止跳動 */
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
         }
 
         @keyframes flashScreen {
@@ -173,7 +199,6 @@
         }
 
         .instruction { font-size: 0.9rem; opacity: 0.8; margin-bottom: 10px; }
-
         .snowflake { position: fixed; top: -10px; color: #fff; font-size: 1em; opacity: 0.5; animation: fall linear infinite; z-index: -1; }
         @keyframes fall { to { transform: translateY(105vh); } }
     </style>
@@ -221,6 +246,8 @@
             </div>
 
             <button class="btn-draw" id="drawBtn" onclick="drawGift()">開始抽獎</button>
+            
+            <div id="promptArea" class="next-prompt"></div>
             
             <div style="margin-top: 20px;">
                 <button class="btn-reset" onclick="location.reload()">重新開始 / 重置資料</button>
@@ -301,8 +328,13 @@
             display.className = "rolling-text";
             display.style.opacity = '1';
 
-            document.getElementById('drawBtn').disabled = false;
-            document.getElementById('drawBtn').innerText = "開始抽獎";
+            // 重置按鈕狀態
+            const btn = document.getElementById('drawBtn');
+            btn.disabled = false;
+            btn.innerText = "開始抽獎";
+            
+            // 清除提示文字
+            document.getElementById('promptArea').innerText = "";
         }
 
         function drawGift() {
@@ -314,15 +346,14 @@
             const display = document.getElementById('displayArea');
             const btn = document.getElementById('drawBtn');
             
+            // 立即停用按鈕並變灰 (CSS :disabled 生效)
             btn.disabled = true;
             
-            // 【1. 啟動漸進式聚光燈】
-            // CSS 中設定了 2.5s 的 transition，所以會慢慢變暗
             document.body.classList.add('mode-spotlight');
 
             let counter = 0;
             let speed = 50; 
-            let rollsBeforeBlackout = 30; // 滾動次數，總時間約 2-2.5 秒
+            let rollsBeforeBlackout = 30;
 
             let tempNames = participants.filter(n => n !== who);
             if (tempNames.length < 5) tempNames = [...tempNames, ...tempNames, ...tempNames];
@@ -336,20 +367,16 @@
                     if (counter > rollsBeforeBlackout - 5) speed += 40;
                     setTimeout(roll, speed);
                 } else {
-                    // 【2. 關燈：全黑模式】
                     enterBlackoutPhase();
                 }
             }
             roll();
 
             function enterBlackoutPhase() {
-                 // 這裡 transition 會依據 CSS 變成 0.1s，瞬間變黑
                  document.body.classList.remove('mode-spotlight');
                  document.body.classList.add('mode-blackout');
                  
-                 // 停頓 0.8 秒
                  setTimeout(() => {
-                     // 【3. 揭曉結果】
                      showResultWithFlash(target);
                  }, 800);
             }
@@ -358,10 +385,9 @@
         function showResultWithFlash(targetName) {
             const display = document.getElementById('displayArea');
             const overlay = document.getElementById('light-overlay');
+            const btn = document.getElementById('drawBtn');
 
             document.body.classList.remove('mode-blackout');
-            
-            // 閃光特效
             overlay.className = 'flash-effect';
 
             display.style.opacity = '1';
@@ -369,7 +395,12 @@
             display.className = "final-result";
             
             hasDrawn[document.getElementById('personSelect').value] = true;
-            document.getElementById('drawBtn').innerText = "抽獎完成";
+            
+            // 按鈕保持 disabled，文字變更
+            btn.innerText = "抽獎完成";
+
+            // 顯示提示文字
+            document.getElementById('promptArea').innerText = "🎉 恭喜！請換下一位，在上方選單切換名字 👇";
 
             fireConfetti();
 
