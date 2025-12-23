@@ -9,8 +9,10 @@
     <meta property="og:title" content="🎄 聖誕節交換禮物大會 🎁">
     <meta property="og:description" content="一年一度的交換禮物開始囉！快來看看你抽到誰！絕對公平、不會抽到自己。">
     <meta property="og:type" content="website">
+
     <link href="https://fonts.googleapis.com/css2?family=Mountains+of+Christmas:wght@700&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    
     <style>
         :root {
             --red: #D42426;
@@ -29,8 +31,43 @@
             align-items: center;
             min-height: 100vh;
             margin: 0;
-            overflow-x: hidden;
+            overflow: hidden; /* 防止捲動影響燈光位置 */
         }
+
+        /* === 全域燈光控制層 (核心修改) === */
+        #light-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none; /* 讓點擊可以穿透 */
+            z-index: 1000; /* 蓋在所有內容之上 */
+            opacity: 0;
+            transition: all 0.5s ease;
+        }
+
+        /* 模式 1: 聚光燈 (Spotlight) */
+        /* 背景極暗，中間留一個圓形透明孔洞 */
+        body.mode-spotlight #light-overlay {
+            opacity: 1;
+            background: radial-gradient(circle at center, transparent 120px, rgba(0,0,0,0.98) 180px);
+        }
+
+        /* 模式 2: 全黑 (Blackout) */
+        /* 背景純黑，完全不透明 */
+        body.mode-blackout #light-overlay {
+            opacity: 1;
+            background: #000;
+        }
+
+        /* 當進入全黑模式時，強制隱藏所有文字顯示區 */
+        body.mode-blackout #displayArea {
+            opacity: 0 !important;
+            transition: opacity 0.1s;
+        }
+
+        /* ================================= */
 
         .container {
             background: rgba(255, 255, 255, 0.1);
@@ -43,6 +80,7 @@
             text-align: center;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
             position: relative;
+            z-index: 10; /* 內容層級 */
         }
 
         .decoration {
@@ -58,23 +96,28 @@
         /* 輸入區塊 */
         .input-group { display: flex; gap: 10px; margin-bottom: 1rem; }
         input { flex: 1; padding: 10px; border-radius: 8px; border: none; outline: none; font-size: 1rem; }
-        button { cursor: pointer; border: none; border-radius: 8px; padding: 10px 20px; font-size: 1rem; font-weight: bold; transition: transform 0.1s, background 0.3s; }
+        
+        button { cursor: pointer; border: none; border-radius: 8px; padding: 10px 20px; font-size: 1rem; font-weight: bold; transition: transform 0.1s; }
         button:active { transform: scale(0.95); }
         .btn-add { background: var(--gold); color: var(--green); }
         .btn-start { background: var(--red); color: white; width: 100%; margin-top: 10px; font-size: 1.2rem; }
-        .btn-draw { background: var(--red); color: white; width: 100%; font-size: 1.5rem; padding: 15px; margin-top: 20px; }
-        .btn-draw:disabled { background: #555; cursor: not-allowed; }
+        
+        .btn-draw { 
+            background: var(--red); color: white; width: 100%; font-size: 1.5rem; padding: 15px; margin-top: 20px; 
+            /* 讓按鈕在聚光燈模式下稍微暗一點，不要搶戲 */
+            transition: opacity 0.3s;
+        }
+        body.mode-spotlight .btn-draw { opacity: 0.3; }
+
         .btn-reset { background: transparent; border: 1px solid var(--cream); color: var(--cream); margin-top: 20px; font-size: 0.8rem; }
 
-        /* 參加者列表 */
         .list-area { max-height: 150px; overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 10px; margin-bottom: 1rem; text-align: left; }
         .tag { display: inline-block; background: var(--cream); color: var(--green); padding: 4px 8px; border-radius: 4px; margin: 4px; font-size: 0.9rem; }
 
-        /* 抽獎區塊 */
         #game-section { display: none; }
         select { width: 100%; padding: 12px; border-radius: 8px; font-size: 1.1rem; margin-bottom: 10px; background: var(--cream); border: none; }
 
-        /* --- 結果顯示特效區 (核心修改) --- */
+        /* 結果顯示區 */
         .result-box {
             margin-top: 20px;
             min-height: 120px;
@@ -83,90 +126,68 @@
             align-items: center;
             flex-direction: column;
             overflow: hidden;
-            border-radius: 15px;
-            /* 預設背景：稍微暗一點 */
-            background: radial-gradient(circle at center, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.5) 80%);
-            transition: all 0.5s ease; /* 讓燈光切換更滑順 */
-            position: relative;
+            /* 為了配合聚光燈，移除原本的背景色，讓它融入背景 */
+            /* 但保留位置佔位 */
         }
 
-        /* 階段1：聚焦燈模式 (抽獎中) */
-        .result-box.spotlight-mode {
-            /* 中心亮，四周暗 */
-            background: radial-gradient(circle at center, rgba(255,240,150,0.5) 0%, rgba(0,0,0,0.8) 70%);
-            box-shadow: inset 0 0 50px var(--gold);
-        }
-
-        /* 階段2：關燈模式 (快抽到時) */
-        .result-box.blackout-mode {
-            background: #000; /* 全黑 */
-            box-shadow: inset 0 0 80px #000;
-        }
-        /* 關燈時文字隱藏 */
-        .result-box.blackout-mode #displayArea {
-            opacity: 0;
-            transition: opacity 0.2s ease-out;
-        }
-
-        /* 階段3：爆炸閃光模式 (結果出現) */
-        .result-box.reveal-mode {
-            /* 強烈聖光 */
-            background: radial-gradient(circle at center, rgba(255,255,255,0.9) 0%, var(--red) 90%);
-            box-shadow: 0 0 60px var(--gold), 0 0 100px white;
-            animation: flashBang 0.8s ease-out forwards;
-        }
-
-        /* 文字樣式 */
         .rolling-text {
-            font-size: 2rem;
+            font-size: 2.5rem;
             font-weight: bold;
             color: var(--gold);
             white-space: nowrap;
+            text-shadow: 0 0 10px rgba(0,0,0,0.5);
             transition: all 0.3s ease;
+            position: relative;
+            z-index: 1001; /* 確保文字在聚光燈之上 (雖然現在用透明孔洞，但層級高一點比較保險) */
         }
-        /* 聚焦時文字也要發光 */
-        .spotlight-mode .rolling-text {
-            text-shadow: 0 0 15px var(--gold), 0 0 5px white;
+
+        /* 聚光燈模式下，滾動文字要非常亮 */
+        body.mode-spotlight .rolling-text {
             color: #fff;
+            text-shadow: 0 0 20px var(--gold), 0 0 10px white;
+            font-size: 3rem; /* 稍微放大 */
         }
 
         .final-result {
-            font-size: 2.8rem;
+            font-size: 3rem;
             font-weight: bold;
             color: #fff;
             white-space: nowrap;
-            z-index: 2;
-            /* 超級強烈的文字光暈 */
-            text-shadow: 0 0 20px white, 0 0 40px var(--gold), 0 0 60px var(--red);
-            /* 彈出 + 輕微震動特效 */
-            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), subtleShake 0.5s ease-out;
+            z-index: 1001;
+            /* 強烈的結果特效 */
+            text-shadow: 0 0 20px white, 0 0 40px var(--gold), 0 0 80px var(--red);
+            animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
-        /* 動畫定義 */
-        @keyframes flashBang {
-            0% { filter: brightness(3) contrast(1.5); } /* 瞬間極亮 */
-            100% { filter: brightness(1) contrast(1); } /* 回到正常亮 */
+        /* 閃光特效：結果出現時整個螢幕閃一下 */
+        @keyframes flashScreen {
+            0% { background-color: white; opacity: 1; }
+            100% { background-color: transparent; opacity: 0; }
         }
+        .flash-effect {
+            animation: flashScreen 0.8s ease-out forwards;
+            background: white; /* 覆蓋原有樣式 */
+        }
+
         @keyframes popIn {
             0% { transform: scale(0); opacity: 0; }
+            80% { transform: scale(1.1); }
             100% { transform: scale(1); opacity: 1; }
-        }
-        @keyframes subtleShake {
-            0%, 100% { transform: translateX(0); }
-            20% { transform: translateX(-5px) rotate(-2deg); }
-            60% { transform: translateX(5px) rotate(2deg); }
         }
 
         .instruction { font-size: 0.9rem; opacity: 0.8; margin-bottom: 10px; }
 
-        /* 雪花背景 */
-        .snowflake { position: fixed; top: -10px; color: #fff; font-size: 1em; opacity: 0.8; animation: fall linear infinite; z-index: -1; }
+        /* 雪花 */
+        .snowflake { position: fixed; top: -10px; color: #fff; font-size: 1em; opacity: 0.5; animation: fall linear infinite; z-index: -1; }
         @keyframes fall { to { transform: translateY(105vh); } }
     </style>
 </head>
 <body>
 
+    <div id="light-overlay"></div>
+
     <script>
+        // 雪花生成
         for(let i=0; i<20; i++){
             let snow = document.createElement('div');
             snow.className = 'snowflake';
@@ -275,22 +296,22 @@
             });
         }
 
-        // 重置顯示區域 (需要清除所有燈光模式)
         function resetDisplay() {
-            const resultBox = document.querySelector('.result-box');
-            // 移除所有特殊模式 class
-            resultBox.classList.remove('spotlight-mode', 'blackout-mode', 'reveal-mode');
+            // 移除所有模式
+            document.body.classList.remove('mode-spotlight', 'mode-blackout');
+            const overlay = document.getElementById('light-overlay');
+            overlay.className = ''; // 清除動畫特效
 
             const display = document.getElementById('displayArea');
             display.innerHTML = "?";
             display.className = "rolling-text";
-            display.style.opacity = '1'; // 確保文字可見
+            display.style.opacity = '1';
 
             document.getElementById('drawBtn').disabled = false;
             document.getElementById('drawBtn').innerText = "開始抽獎";
         }
 
-        // --- 核心修改：新的抽獎流程 ---
+        // --- 抽獎邏輯 (搭配全螢幕燈光) ---
         function drawGift() {
             const who = document.getElementById('personSelect').value;
             if (!who) return alert("請先選擇你是誰！");
@@ -298,21 +319,18 @@
 
             const target = assignments[who];
             const display = document.getElementById('displayArea');
-            const resultBox = document.querySelector('.result-box'); // 取得容器
             const btn = document.getElementById('drawBtn');
             
-            // 初始狀態
             btn.disabled = true;
-            display.style.opacity = '1';
-
-            // 【階段 1: 開啟聚焦燈】
-            resultBox.classList.add('spotlight-mode');
+            
+            // 【1. 開燈：聚光燈模式】
+            // 讓整個網頁變暗，只剩下中間是亮的
+            document.body.classList.add('mode-spotlight');
 
             let counter = 0;
             let speed = 50; 
-            let rollsBeforeBlackout = 30; // 滾動幾次後進入黑暗
+            let rollsBeforeBlackout = 30;
 
-            // 準備假名單
             let tempNames = participants.filter(n => n !== who);
             if (tempNames.length < 5) tempNames = [...tempNames, ...tempNames, ...tempNames];
             
@@ -321,40 +339,40 @@
                 counter++;
                 
                 if (counter < rollsBeforeBlackout) {
-                    // 減速曲線
                     if (counter > rollsBeforeBlackout - 10) speed += 20; 
                     if (counter > rollsBeforeBlackout - 5) speed += 40;
                     setTimeout(roll, speed);
                 } else {
-                    // 【階段 2: 進入黑暗時刻】
+                    // 【2. 關燈：全黑模式】
                     enterBlackoutPhase();
                 }
             }
             roll();
 
             function enterBlackoutPhase() {
-                 // 關掉聚焦燈，開啟全黑模式
-                 resultBox.classList.remove('spotlight-mode');
-                 resultBox.classList.add('blackout-mode');
+                 // 切換到全黑 class
+                 document.body.classList.remove('mode-spotlight');
+                 document.body.classList.add('mode-blackout');
                  
-                 // 保持黑暗 0.6 秒，製造緊張感
+                 // 停頓 0.8 秒 (伸手不見五指)
                  setTimeout(() => {
-                     // 【階段 3: 爆炸閃光結果】
+                     // 【3. 揭曉：閃光與結果】
                      showResultWithFlash(target);
-                 }, 600);
+                 }, 800);
             }
         }
 
-        // 顯示結果與強力特效
         function showResultWithFlash(targetName) {
             const display = document.getElementById('displayArea');
-            const resultBox = document.querySelector('.result-box');
+            const overlay = document.getElementById('light-overlay');
 
-            // 移除黑暗，加入閃光模式
-            resultBox.classList.remove('blackout-mode');
-            resultBox.classList.add('reveal-mode');
+            // 移除全黑模式
+            document.body.classList.remove('mode-blackout');
+            
+            // 為了製造爆炸閃光，我們把 overlay 暫時變成白色閃爍
+            overlay.className = 'flash-effect';
 
-            // 確保文字可見並設定樣式
+            // 顯示文字
             display.style.opacity = '1';
             display.innerText = "🎁 " + targetName;
             display.className = "final-result";
@@ -364,14 +382,14 @@
 
             fireConfetti();
 
-            // 1秒後移除「爆炸閃光」的 class，回到普通的亮處，避免一直刺眼
+            // 閃光結束後，移除 flash class，讓畫面回復正常
             setTimeout(() => {
-                resultBox.classList.remove('reveal-mode');
-            }, 1000);
+                overlay.className = '';
+            }, 800);
         }
 
         function fireConfetti() {
-            var count = 300; // 增加彩帶量
+            var count = 300;
             var defaults = { origin: { y: 0.7 } };
             function fire(particleRatio, opts) {
                 confetti(Object.assign({}, defaults, opts, {
